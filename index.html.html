@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบจัดการตารางสอน - วิทยาลัยเทคนิคกระบี่</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            900: '#312e81',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'Sarabun', 'system-ui', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- SheetJS (xlsx.full.min.js) สำหรับนำเข้าและส่งออกไฟล์ Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { font-family: 'Sarabun', 'Inter', sans-serif; }
+        
+        /* สไตล์สำหรับการพิมพ์/PDF ให้พอดีหน้ากระดาษหน้าเดียวเป๊ะๆ */
+        @media print {
+            @page {
+                size: A4 landscape;
+                margin: 4mm;
+            }
+            body { 
+                background: white !important; 
+                color: black !important; 
+                font-size: 8.5px !important; 
+                -webkit-print-color-adjust: exact;
+            }
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            main { padding: 0 !important; max-width: 100% !important; margin: 0 !important; width: 100% !important; }
+            .shadow-sm, .shadow-md, .rounded-2xl { box-shadow: none !important; border-radius: 0 !important; }
+            table { border-collapse: collapse !important; width: 100% !important; page-break-inside: avoid; }
+            th, td { border: 1px solid #000 !important; color: #000 !important; padding: 2px !important; }
+            .print-only td, tbody td { height: auto !important; min-height: 25px !important; }
+        }
+        .print-only { display: none; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col">
+
+    <!-- Top Navigation Bar -->
+    <header class="no-print bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-600 to-amber-500 flex items-center justify-center text-white shadow-md">
+                    <i data-lucide="graduation-cap" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h1 class="text-base sm:text-lg font-bold text-slate-900 leading-tight flex items-center gap-2">
+                        วิทยาลัยเทคนิคกระบี่
+                        <span class="text-xs bg-amber-50 text-amber-700 font-semibold px-2 py-0.5 rounded-full border border-amber-200" id="header-badge-group">-</span>
+                    </h1>
+                    <p class="text-xs text-slate-500" id="header-sub-title">ระบบจัดเก็บและจัดตารางสอนแยกตามปีการศึกษา</p>
+                </div>
+            </div>
+
+            <!-- Role View Switcher -->
+            <div class="flex items-center space-x-2 sm:space-x-4">
+                <div class="bg-slate-100 p-1 rounded-xl flex items-center text-xs font-medium text-slate-600 border border-slate-200">
+                    <button onclick="switchRole('admin')" id="role-admin-btn" class="px-3 py-1.5 rounded-lg transition-all font-semibold bg-white text-amber-700 shadow-sm">
+                        <i data-lucide="layout-grid" class="w-3.5 h-3.5 inline mr-1"></i> ผู้บริหาร / วิชาการ
+                    </button>
+                    <button onclick="switchRole('teacher')" id="role-teacher-btn" class="px-3 py-1.5 rounded-lg transition-all hover:text-slate-900">
+                        <i data-lucide="user-check" class="w-3.5 h-3.5 inline mr-1"></i> ครูผู้สอน
+                    </button>
+                    <button onclick="switchRole('student')" id="role-student-btn" class="px-3 py-1.5 rounded-lg transition-all hover:text-slate-900">
+                        <i data-lucide="users" class="w-3.5 h-3.5 inline mr-1"></i> นักเรียน
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-1 space-y-6">
+
+        <!-- Info Card: Course & Advisor Summary -->
+        <div class="no-print bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div class="space-y-1">
+                <div class="flex items-center gap-2">
+                    <span class="bg-amber-100 text-amber-800 text-xs font-bold px-2.5 py-0.5 rounded-md" id="info-card-code">รหัสกลุ่มเรียน: -</span>
+                    <span class="text-xs text-slate-500" id="info-card-group-label">กลุ่ม: -</span>
+                </div>
+                <h2 class="text-base font-bold text-slate-800" id="main-panel-title">ตารางเรียนและตารางสอนรายบุคคล (ยังไม่มีข้อมูลในระบบ)</h2>
+                <p class="text-xs text-slate-600" id="info-card-advisor">กรุณากรอกข้อมูลด้านล่างเพื่อเริ่มต้นใช้งาน</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <label class="no-print inline-flex items-center px-3 py-2 text-xs font-semibold rounded-xl text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-300 transition shadow-sm cursor-pointer">
+                    <i data-lucide="upload" class="w-4 h-4 mr-1.5 text-blue-600"></i> นำเข้า Excel/CSV
+                    <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv" class="hidden" onchange="importExcelData(event)">
+                </label>
+                <button onclick="exportToExcel()" class="no-print inline-flex items-center px-3 py-2 text-xs font-semibold rounded-xl text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 transition shadow-sm">
+                    <i data-lucide="file-spreadsheet" class="w-4 h-4 mr-1.5 text-emerald-600"></i> Export Excel
+                </button>
+                <button onclick="exportToPDF()" class="no-print inline-flex items-center px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 transition shadow-sm">
+                    <i data-lucide="printer" class="w-4 h-4 mr-1.5 text-slate-500"></i> พิมพ์ / PDF
+                </button>
+            </div>
+        </div>
+
+        <!-- ฟอร์มกรอกข้อมูลการเรียนการสอนด้วยตนเอง -->
+        <div class="no-print bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+            <h3 class="text-xs font-bold text-slate-900 flex items-center gap-2 uppercase tracking-wide">
+                <i data-lucide="plus-circle" class="w-4 h-4 text-amber-600"></i>
+                กรอกข้อมูลการเรียนการสอนลงในตารางด้วยตนเอง
+            </h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs mb-3">
+                <div>
+                    <label class="block font-medium text-slate-600 mb-1">ปีการศึกษา (เช่น 2569)</label>
+                    <input type="text" id="input-year" placeholder="เช่น 2569" value="2569" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-amber-500">
+                </div>
+                <div>
+                    <label class="block font-medium text-slate-600 mb-1">ภาคเรียน</label>
+                    <select id="input-semester" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-amber-500">
+                        <option value="1">ภาคเรียนที่ 1</option>
+                        <option value="2">ภาคเรียนที่ 2</option>
+                        <option value="ภาคฤดูร้อน">ภาคฤดูร้อน</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block font-medium text-slate-600 mb-1">กลุ่มเรียน</label>
+                    <input type="text" id="input-group" placeholder="เช่น ทส.ส.1/2 (ม.6)" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-amber-500">
+                </div>
+                <div>
+                    <label class="block font-medium text-slate-600 mb-1">ครูที่ปรึกษา</label>
+                    <input type="text" id="input-advisor" placeholder="เช่น นางสาวรัชนก คงแก้ว" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-amber-500">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 text-xs">
+                <div>
+                    <label class="block font-medium text-slate-600 mb-1">วัน</label>
+                    <select id="input-day" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-amber-500">
+                        <option value="วันจันทร์">วันจันทร์</option>
+                        <option value="วันอังคาร">วันอังคาร</option>
+                        <option value="วันพุธ">วันพุธ</option>
+                        <option value="วันพฤหัสบดี">วันพฤหัสบดี</option>
+                        <option value="วันศุกร์">วันศุกร์</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block font-medium text-slate-600 mb-1">คาบที่ (1-12)</label>
+                    <input type="number" id="input-period" min="1" max="12" value="1" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-amber-500">
+                </div>
+                <div>
+                    <label class="block font-medium text-slate-600 mb-1">รหัสวิชา</label>
+                    <input type="text" id="input-code" placeholder="เช่น 31905-2002" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-amber-500">
+                </div>
+                <div>
+                    <label class="block font-medium text-slate-600 mb-1">ห้องเรียน</label>
+                    <input type="text" id="input-room" placeholder="เช่น 434" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-amber-500">
+                </div>
+                <div>
+                    <label class="block font-medium text-slate-600 mb-1">ครูผู้สอน</label>
+                    <input type="text" id="input-teacher" placeholder="เช่น รัชนก" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-amber-500">
+                </div>
+            </div>
+            
+            <!-- ปุ่มควบคุมการบันทึก และปุ่มเปิดหน้าต่างจัดการข้อมูล -->
+            <div class="flex justify-end items-center gap-2 pt-2">
+                <button onclick="openManageModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg px-4 py-2 text-xs transition shadow-sm flex items-center gap-1.5 border border-slate-300">
+                    <i data-lucide="settings" class="w-4 h-4 text-slate-600"></i> แก้ไข / จัดการข้อมูล
+                </button>
+                <button onclick="clearInputForm()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-lg px-4 py-2 text-xs transition shadow-sm flex items-center gap-1.5">
+                    <i data-lucide="rotate-ccw" class="w-4 h-4"></i> ล้างฟอร์ม
+                </button>
+                <button onclick="manualAddSchedule()" class="bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg px-4 py-2 text-xs transition shadow-sm flex items-center gap-1.5">
+                    <i data-lucide="check" class="w-4 h-4"></i> เพิ่มเข้าตาราง
+                </button>
+            </div>
+        </div>
+
+        <!-- Modal สำหรับจัดการข้อมูล (ซ่อนไว้จนกว่าจะกดปุ่ม "แก้ไข / จัดการข้อมูล") -->
+        <div id="manage-modal" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[85vh]">
+                <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+                    <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+                        <i data-lucide="sliders" class="w-4 h-4 text-amber-600"></i>
+                        จัดการข้อมูลคาบเรียน (แก้ไข หรือ ลบ)
+                    </h3>
+                    <button onclick="closeManageModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <div class="p-5 overflow-y-auto flex-1">
+                    <p class="text-xs text-slate-500 mb-3">คลิกปุ่ม **"แก้ไข"** เพื่อดึงข้อมูลไปปรับเปลี่ยนในฟอร์มหลัก หรือกด **"ลบ"** เพื่อถอนคาบเรียนนั้นออกจากระบบ</p>
+                    <div class="border border-slate-200 rounded-xl overflow-hidden">
+                        <table class="w-full text-left text-xs text-slate-700">
+                            <thead class="bg-slate-100 text-[10px] uppercase">
+                                <tr>
+                                    <th class="p-2.5 border-b">ปี/ภาคเรียน</th>
+                                    <th class="p-2.5 border-b">กลุ่มเรียน</th>
+                                    <th class="p-2.5 border-b">วัน</th>
+                                    <th class="p-2.5 border-b text-center">คาบ</th>
+                                    <th class="p-2.5 border-b">รหัสวิชา</th>
+                                    <th class="p-2.5 border-b">ห้อง</th>
+                                    <th class="p-2.5 border-b">ครูผู้สอน</th>
+                                    <th class="p-2.5 border-b text-center">จัดการ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="custom-records-tbody" class="divide-y divide-slate-100 bg-white">
+                                <!-- Injected by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="px-5 py-3 bg-slate-50 border-t border-slate-200 flex justify-end">
+                    <button onclick="closeManageModal()" class="bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold px-4 py-2 rounded-lg transition">ปิดหน้าต่าง</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Interactive Schedule Dashboard -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            
+            <!-- Dashboard Toolbar / Filters -->
+            <div class="no-print p-4 sm:p-5 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/50">
+                <div class="flex flex-wrap items-center gap-2" id="dimension-toolbar">
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wider mr-1">เลือกปีการศึกษา:</span>
+                    <select id="active-term-select" onchange="changeActiveTerm(this.value)" class="bg-white border border-slate-300 text-xs font-semibold rounded-lg px-3 py-1.5 text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500">
+                        <option value="">-- ยังไม่มีปีการศึกษาในระบบ --</option>
+                    </select>
+                </div>
+
+                <div class="flex items-center space-x-2" id="filter-select-container">
+                    <label for="dimension-target-select" class="text-xs font-medium text-slate-500" id="filter-target-label">มุมมอง:</label>
+                    <select id="dimension-target-select" onchange="renderTimetableGrid()" class="bg-white border border-slate-300 text-xs font-semibold rounded-lg px-3 py-1.5 text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500">
+                        <!-- Options injected dynamically -->
+                    </select>
+                </div>
+            </div>
+
+            <!-- Summary Chips -->
+            <div class="no-print px-5 py-3 border-b border-slate-100 bg-slate-50/20 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div class="flex items-center space-x-4">
+                    <span class="text-slate-500">กำลังแสดงภาคเรียนล่าสุด: <strong class="text-slate-800" id="current-view-title">-</strong></span>
+                </div>
+                <div class="flex items-center space-x-3 text-[11px]">
+                    <div class="flex items-center space-x-1">
+                        <span class="w-3 h-3 rounded bg-blue-100 border border-blue-400"></span>
+                        <span class="text-slate-600">วิชาสามัญ/ทฤษฎี</span>
+                    </div>
+                    <div class="flex items-center space-x-1">
+                        <span class="w-3 h-3 rounded bg-purple-100 border border-purple-400"></span>
+                        <span class="text-slate-600">วิชาชีพ/ปฏิบัติ</span>
+                    </div>
+                    <div class="flex items-center space-x-1">
+                        <span class="w-3 h-3 rounded bg-amber-100 border border-amber-400"></span>
+                        <span class="text-slate-600">กิจกรรมหน้าเสาธง / พัก</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Timetable Interactive Grid -->
+            <div class="overflow-x-auto p-4 sm:p-5">
+                <table class="w-full border-collapse min-w-[1100px] text-xs">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-700 text-center">
+                            <th class="border border-slate-200 p-2.5 w-24 font-bold">วัน / เวลา</th>
+                            <th class="border border-slate-200 p-2 font-semibold bg-amber-50 text-amber-800 w-20">07:40 - 08:00</th>
+                            <th class="border border-slate-200 p-2 font-semibold">คาบ 1<br><span class="text-[10px] text-slate-500 font-normal">08:00 - 09:00</span></th>
+                            <th class="border border-slate-200 p-2 font-semibold">คาบ 2<br><span class="text-[10px] text-slate-500 font-normal">09:00 - 10:00</span></th>
+                            <th class="border border-slate-200 p-2 font-semibold">คาบ 3<br><span class="text-[10px] text-slate-500 font-normal">10:00 - 11:00</span></th>
+                            <th class="border border-slate-200 p-2 font-semibold">คาบ 4<br><span class="text-[10px] text-slate-500 font-normal">11:00 - 12:00</span></th>
+                            <th class="border border-slate-200 p-2 font-semibold bg-amber-50 text-amber-800 w-24">พักกลางวัน<br><span class="text-[10px] text-amber-600 font-normal">12:00 - 13:00</span></th>
+                            <th class="border border-slate-200 p-2 font-semibold">คาบ 5<br><span class="text-[10px] text-slate-500 font-normal">13:00 - 14:00</span></th>
+                            <th class="border border-slate-200 p-2 font-semibold">คาบ 6<br><span class="text-[10px] text-slate-500 font-normal">14:00 - 15:00</span></th>
+                            <th class="border border-slate-200 p-2 font-semibold">คาบ 7<br><span class="text-[10px] text-slate-500 font-normal">15:00 - 16:00</span></th>
+                            <th class="border border-slate-200 p-2 font-semibold">คาบ 8<br><span class="text-[10px] text-slate-500 font-normal">16:00 - 17:00</span></th>
+                            <th class="border border-slate-200 p-2 font-semibold">คาบ 9<br><span class="text-[10px] text-slate-500 font-normal">17:00 - 18:00</span></th>
+                            <th class="border border-slate-200 p-2 font-semibold">คาบ 10<br><span class="text-[10px] text-slate-500 font-normal">18:00 - 19:00</span></th>
+                            <th class="border border-slate-200 p-2 font-semibold">คาบ 11<br><span class="text-[10px] text-slate-500 font-normal">19:00 - 20:00</span></th>
+                            <th class="border border-slate-200 p-2 font-semibold">คาบ 12<br><span class="text-[10px] text-slate-500 font-normal">20:00 - 21:00</span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="timetable-body" class="divide-y divide-slate-200 bg-white">
+                        <!-- Populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 bg-slate-900 text-white text-xs px-4 py-3 rounded-xl shadow-xl flex items-center space-x-2 transition-all transform translate-y-12 opacity-0 pointer-events-none">
+        <i data-lucide="check" class="w-4 h-4 text-emerald-400"></i>
+        <span id="toast-message">การทำงานเสร็จสมบูรณ์</span>
+    </div>
+
+    <!-- Application Script Logic -->
+    <script>
+        let currentRole = 'admin';       // 'admin' | 'teacher' | 'student'
+        let currentTermKey = '';         // คีย์ปีการศึกษาปัจจุบันที่แสดงผล (เช่น "2569/1")
+
+        // โครงสร้างข้อมูลหลักเก็บแยกตามปี/ภาคเรียน: { "2569/1": { year: "2569", semester: "1", advisor: "...", groupName: "...", days: [...] } }
+        let semestersData = {};
+
+        window.onload = function() {
+            loadFromLocalStorage();
+            switchRole('admin');
+            lucide.createIcons();
+        };
+
+        // บันทึกข้อมูลลงในหน่วยความจำเบราว์เซอร์ (LocalStorage)
+        function saveToLocalStorage() {
+            try {
+                localStorage.setItem('krabi_timetable_semesters', JSON.stringify(semestersData));
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // โหลดข้อมูลจากหน่วยความจำเบราว์เซอร์
+        function loadFromLocalStorage() {
+            try {
+                const saved = localStorage.getItem('krabi_timetable_semesters');
+                if (saved) {
+                    semestersData = JSON.parse(saved);
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function manualAddSchedule() {
+            const year = document.getElementById('input-year').value.trim();
+            const semester = document.getElementById('input-semester').value;
+            const group = document.getElementById('input-group').value.trim();
+            const advisor = document.getElementById('input-advisor').value.trim();
+            const day = document.getElementById('input-day').value;
+            const period = parseInt(document.getElementById('input-period').value);
+            const code = document.getElementById('input-code').value.trim();
+            const room = document.getElementById('input-room').value.trim();
+            const teacher = document.getElementById('input-teacher').value.trim();
+
+            if (!year || !group || !code || !room || !teacher) {
+                showToast('กรุณากรอกข้อมูลสำคัญให้ครบถ้วน');
+                return;
+            }
+
+            if (isNaN(period) || period < 1 || period > 12) {
+                showToast('กรุณาระบุคาบเรียนระหว่าง 1 ถึง 12 เท่านั้น');
+                return;
+            }
+
+            const termKey = `${year}/${semester}`;
+
+            if (!semestersData[termKey]) {
+                semestersData[termKey] = {
+                    year: year,
+                    semester: semester,
+                    groupName: group,
+                    advisor: advisor || 'ยังไม่ระบุ',
+                    days: [
+                        { dayName: 'วันจันทร์', slots: { 0: { type: 'flag', name: 'กิจกรรมหน้าเสาธง' } } },
+                        { dayName: 'วันอังคาร', slots: { 0: { type: 'flag', name: 'กิจกรรมหน้าเสาธง' } } },
+                        { dayName: 'วันพุธ', slots: { 0: { type: 'flag', name: 'กิจกรรมหน้าเสาธง' } } },
+                        { dayName: 'วันพฤหัสบดี', slots: { 0: { type: 'flag', name: 'กิจกรรมหน้าเสาธง' } } },
+                        { dayName: 'วันศุกร์', slots: { 0: { type: 'flag', name: 'กิจกรรมหน้าเสาธง' } } }
+                    ]
+                };
+            }
+
+            let termObj = semestersData[termKey];
+            termObj.groupName = group;
+            if (advisor) termObj.advisor = advisor;
+
+            let dayObj = termObj.days.find(d => d.dayName === day);
+            if (!dayObj) {
+                dayObj = { dayName: day, slots: { 0: { type: 'flag', name: 'กิจกรรมหน้าเสาธง' } } };
+                termObj.days.push(dayObj);
+            }
+
+            dayObj.slots[period] = { code: code, room: room, teacher: teacher };
+
+            currentTermKey = termKey; // อัปเดตให้แสดงผลภาคเรียนล่าสุดที่เพิ่งเพิ่มทันที
+            saveToLocalStorage();
+            updateTermDropdown();
+            renderTimetableGrid();
+            showToast(`เพิ่มวิชา ${code} ลงในภาคเรียน ${termKey} สำเร็จ!`);
+        }
+
+        function clearInputForm() {
+            document.getElementById('input-code').value = '';
+            document.getElementById('input-room').value = '';
+            document.getElementById('input-teacher').value = '';
+            document.getElementById('input-period').value = '1';
+            showToast('ล้างข้อมูลในฟอร์มเรียบร้อยแล้ว');
+        }
+
+        function openManageModal() {
+            document.getElementById('manage-modal').classList.remove('hidden');
+            renderCustomRecordsTable();
+            lucide.createIcons();
+        }
+
+        function closeManageModal() {
+            document.getElementById('manage-modal').classList.add('hidden');
+            renderTimetableGrid();
+        }
+
+        function removeScheduleSlot(termKey, dayName, period) {
+            if (semestersData[termKey]) {
+                const termObj = semestersData[termKey];
+                const dayObj = termObj.days.find(d => d.dayName === dayName);
+                if (dayObj && dayObj.slots[period]) {
+                    delete dayObj.slots[period];
+                    
+                    // ตรวจสอบว่าถ้าไม่มีคาบเรียนเหลือเลย ให้ลบเทอมนี้ออก
+                    let hasAnySlot = false;
+                    termObj.days.forEach(d => {
+                        for (let p in d.slots) {
+                            if (d.slots[p].code) hasAnySlot = true;
+                        }
+                    });
+                    if (!hasAnySlot) {
+                        delete semestersData[termKey];
+                    }
+
+                    saveToLocalStorage();
+                    updateTermDropdown();
+                    renderCustomRecordsTable();
+                    showToast('ลบข้อมูลเรียบร้อยแล้ว');
+                }
+            }
+        }
+
+        function editScheduleSlot(termKey, dayName, period) {
+            const termObj = semestersData[termKey];
+            if (termObj) {
+                const dayObj = termObj.days.find(d => d.dayName === dayName);
+                if (dayObj && dayObj.slots[period]) {
+                    const slot = dayObj.slots[period];
+                    document.getElementById('input-year').value = termObj.year;
+                    document.getElementById('input-semester').value = termObj.semester;
+                    document.getElementById('input-group').value = termObj.groupName;
+                    document.getElementById('input-advisor').value = termObj.advisor;
+                    document.getElementById('input-day').value = dayName;
+                    document.getElementById('input-period').value = period;
+                    document.getElementById('input-code').value = slot.code;
+                    document.getElementById('input-room').value = slot.room;
+                    document.getElementById('input-teacher').value = slot.teacher;
+
+                    delete dayObj.slots[period];
+                    saveToLocalStorage();
+                    closeManageModal();
+                    updateTermDropdown();
+                    renderTimetableGrid();
+                    showToast('ดึงข้อมูลมาใส่ฟอร์มเพื่อแก้ไขแล้ว');
+                }
+            }
+        }
+
+        function renderCustomRecordsTable() {
+            const tbody = document.getElementById('custom-records-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            let hasRecords = false;
+
+            for (let termKey in semestersData) {
+                const termObj = semestersData[termKey];
+                termObj.days.forEach(d => {
+                    for (let p in d.slots) {
+                        if (d.slots[p].code) {
+                            hasRecords = true;
+                            const slot = d.slots[p];
+                            const tr = document.createElement('tr');
+                            tr.className = 'hover:bg-slate-50 transition-colors';
+                            tr.innerHTML = `
+                                <td class="p-2.5 border-b font-bold text-amber-700">${termKey}</td>
+                                <td class="p-2.5 border-b font-semibold text-slate-800">${termObj.groupName}</td>
+                                <td class="p-2.5 border-b">${d.dayName}</td>
+                                <td class="p-2.5 border-b text-center">คาบ ${p}</td>
+                                <td class="p-2.5 border-b font-mono text-purple-700">${slot.code}</td>
+                                <td class="p-2.5 border-b">ห้อง ${slot.room}</td>
+                                <td class="p-2.5 border-b">${slot.teacher}</td>
+                                <td class="p-2.5 border-b text-center space-x-1">
+                                    <button onclick="editScheduleSlot('${termKey}', '${d.dayName}', ${p})" class="px-2 py-1 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded text-xs font-semibold transition">แก้ไข</button>
+                                    <button onclick="removeScheduleSlot('${termKey}', '${d.dayName}', ${p})" class="px-2 py-1 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded text-xs font-semibold transition">ลบ</button>
+                                </td>
+                            `;
+                            tbody.appendChild(tr);
+                        }
+                    }
+                });
+            }
+
+            if (!hasRecords) {
+                tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400">ยังไม่มีข้อมูลคาบเรียนในระบบ</td></tr>`;
+            }
+        }
+
+        function updateTermDropdown() {
+            const select = document.getElementById('active-term-select');
+            if (!select) return;
+            select.innerHTML = '';
+
+            const keys = Object.keys(semestersData);
+            if (keys.length === 0) {
+                select.innerHTML = `<option value="">-- ยังไม่มีปีการศึกษาในระบบ --</option>`;
+                currentTermKey = '';
+                renderTimetableGrid();
+                return;
+            }
+
+            // เรียงลำดับปีการศึกษาล่าสุดขึ้นมาแสดงก่อน
+            keys.sort().reverse();
+
+            if (!currentTermKey || !semestersData[currentTermKey]) {
+                currentTermKey = keys[0]; // เลือกภาคเรียนล่าสุดอัตโนมัติ
+            }
+
+            keys.forEach(k => {
+                const opt = document.createElement('option');
+                opt.value = k;
+                opt.innerText = `ปีการศึกษา/ภาคเรียน: ${k}`;
+                if (k === currentTermKey) opt.selected = true;
+                select.appendChild(opt);
+            });
+
+            renderTimetableGrid();
+        }
+
+        function changeActiveTerm(termKey) {
+            currentTermKey = termKey;
+            renderTimetableGrid();
+        }
+
+        function switchRole(role) {
+            currentRole = role;
+            ['admin', 'teacher', 'student'].forEach(r => {
+                const btn = document.getElementById(`role-${r}-btn`);
+                if (btn) {
+                    if (r === role) {
+                        btn.className = 'px-3 py-1.5 rounded-lg transition-all font-semibold bg-white text-amber-700 shadow-sm';
+                    } else {
+                        btn.className = 'px-3 py-1.5 rounded-lg transition-all hover:text-slate-900 text-slate-600';
+                    }
+                }
+            });
+            lucide.createIcons();
+        }
+
+        function renderTimetableGrid() {
+            const tbody = document.getElementById('timetable-body');
+            if(!tbody) return;
+            tbody.innerHTML = '';
+
+            const keys = Object.keys(semestersData);
+            if (keys.length === 0 || !currentTermKey || !semestersData[currentTermKey]) {
+                document.getElementById('header-badge-group').innerText = '-';
+                document.getElementById('header-sub-title').innerText = 'ระบบจัดเก็บและจัดตารางสอนแยกตามปีการศึกษา';
+                document.getElementById('info-card-advisor').innerText = 'ยังไม่มีข้อมูลในระบบ กรุณากรอกข้อมูลด้านบน';
+                document.getElementById('info-card-code').innerText = 'รหัสกลุ่มเรียน: -';
+                document.getElementById('info-card-group-label').innerText = 'กลุ่ม: -';
+                document.getElementById('main-panel-title').innerText = 'ตารางเรียนและตารางสอนรายบุคคล (ว่าง)';
+                document.getElementById('current-view-title').innerText = 'ไม่มีข้อมูล';
+                
+                // แสดงแถวว่างในตาราง
+                ['วันจันทร์', 'วันอังคาร', 'วันพุธ', 'วันพฤหัสบดี', 'วันศุกร์'].forEach(dayName => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="border border-slate-200 p-2.5 font-bold text-slate-700 bg-slate-50 text-center">${dayName}</td>
+                        <td class="border border-slate-200 p-1.5 text-center bg-amber-50/50 text-[11px] text-amber-900 font-medium">กิจกรรมหน้าเสาธง</td>
+                        <td colspan="4" class="border border-slate-200 p-1 h-20 text-center text-slate-300 text-xs">- ว่าง -</td>
+                        <td class="border border-slate-200 p-1.5 text-center bg-amber-50/70 text-amber-800 text-[11px]">พักเที่ยง</td>
+                        <td colspan="9" class="border border-slate-200 p-1 h-20 text-center text-slate-300 text-xs">- ว่าง -</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+                return;
+            }
+
+            const termObj = semestersData[currentTermKey];
+            document.getElementById('header-badge-group').innerText = termObj.groupName;
+            document.getElementById('header-sub-title').innerText = `ตารางสอน ภาคเรียนที่ ${currentTermKey} | ครูที่ปรึกษา: ${termObj.advisor}`;
+            document.getElementById('info-card-advisor').innerHTML = `ครูที่ปรึกษาประจำกลุ่ม: <strong>${termObj.advisor}</strong>`;
+            document.getElementById('info-card-code').innerText = `ปีการศึกษา/ภาคเรียน: ${currentTermKey}`;
+            document.getElementById('info-card-group-label').innerText = `กลุ่ม: ${termObj.groupName}`;
+            document.getElementById('main-panel-title').innerText = `ตารางเรียนและตารางสอนรายบุคคล | ภาคเรียนที่ ${currentTermKey}`;
+            document.getElementById('current-view-title').innerText = `${currentTermKey} (กลุ่ม ${termObj.groupName})`;
+
+            const daysList = ['วันจันทร์', 'วันอังคาร', 'วันพุธ', 'วันพฤหัสบดี', 'วันศุกร์'];
+
+            daysList.forEach((dayName) => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50/50 transition-colors';
+
+                const dayTd = document.createElement('td');
+                dayTd.className = 'border border-slate-200 p-2.5 font-bold text-slate-700 bg-slate-50 text-center';
+                dayTd.innerText = dayName;
+                tr.appendChild(dayTd);
+
+                const flagTd = document.createElement('td');
+                flagTd.className = 'border border-slate-200 p-1.5 text-center bg-amber-50/50 text-[11px] text-amber-900 font-medium align-middle';
+                flagTd.innerText = 'กิจกรรมหน้าเสาธง';
+                tr.appendChild(flagTd);
+
+                for (let p = 1; p <= 4; p++) {
+                    tr.appendChild(createSlotCell(termObj, dayName, p));
+                }
+
+                const lunchTd = document.createElement('td');
+                lunchTd.className = 'border border-slate-200 p-1.5 text-center bg-amber-50/70 text-amber-800 font-medium text-[11px] align-middle';
+                lunchTd.innerText = 'พักเที่ยง';
+                tr.appendChild(lunchTd);
+
+                for (let p = 5; p <= 13; p++) {
+                    tr.appendChild(createSlotCell(termObj, dayName, p));
+                }
+
+                tbody.appendChild(tr);
+            });
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        function createSlotCell(termObj, dayName, period) {
+            const td = document.createElement('td');
+            td.className = 'border border-slate-200 p-1 h-20 align-top relative';
+
+            let dayObj = termObj.days.find(d => d.dayName === dayName);
+            let slot = dayObj && dayObj.slots ? dayObj.slots[period] : null;
+
+            if (!slot || !slot.code) {
+                td.innerHTML = `<div class="h-full w-full rounded flex items-center justify-center text-slate-200 text-[10px]">-</div>`;
+                return td;
+            }
+
+            td.innerHTML = `
+                <div class="h-full w-full rounded p-1.5 border bg-purple-50 border-purple-200 text-purple-950 flex flex-col justify-between text-left text-[10px] relative mb-1">
+                    <div>
+                        <div class="font-bold text-purple-800 truncate">${slot.code}</div>
+                    </div>
+                    <div class="space-y-0.5 pt-1 text-slate-600 border-t border-purple-200/50">
+                        <div class="font-semibold text-slate-800">ห้อง ${slot.room}</div>
+                        <div class="truncate">${slot.teacher}</div>
+                    </div>
+                </div>
+            `;
+            return td;
+        }
+
+        function importExcelData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const jsonRows = XLSX.utils.sheet_to_json(worksheet);
+                    
+                    if (jsonRows.length > 0) {
+                        showToast(`นำเข้าข้อมูลสำเร็จ ${jsonRows.length} รายการ`);
+                    } else {
+                        showToast('ไม่พบข้อมูลในไฟล์ Excel');
+                    }
+                } catch (error) {
+                    console.error(error);
+                    showToast('เกิดข้อผิดพลาดในการอ่านไฟล์');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function exportToExcel() {
+            try {
+                if (!currentTermKey || !semestersData[currentTermKey]) {
+                    showToast('ยังไม่มีข้อมูลสำหรับส่งออก');
+                    return;
+                }
+                const termObj = semestersData[currentTermKey];
+                const exportRows = [];
+                termObj.days.forEach((dayObj) => {
+                    for (let p = 1; p <= 13; p++) {
+                        const slot = dayObj.slots[p];
+                        if (slot && slot.code) {
+                            exportRows.push({
+                                'ปีการศึกษา/ภาค': currentTermKey,
+                                'กลุ่มเรียน': termObj.groupName,
+                                'วัน': dayObj.dayName,
+                                'คาบที่': p,
+                                'รหัสวิชา': slot.code,
+                                'ห้องเรียน': slot.room,
+                                'ครูผู้สอน': slot.teacher
+                            });
+                        }
+                    }
+                });
+                const ws = XLSX.utils.json_to_sheet(exportRows);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Timetable");
+                XLSX.writeFile(wb, `Timetable_Term_${currentTermKey.replace('/', '_')}.xlsx`);
+                showToast('ส่งออกไฟล์ Excel สำเร็จ');
+            } catch (err) {
+                console.log(err);
+                showToast('เกิดข้อผิดพลาดในการส่งออก');
+            }
+        }
+
+        function exportToPDF() {
+            window.print();
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            if(!toast) return;
+            document.getElementById('toast-message').innerText = msg;
+            toast.classList.remove('translate-y-12', 'opacity-0', 'pointer-events-none');
+            setTimeout(() => {
+                toast.classList.add('translate-y-12', 'opacity-0', 'pointer-events-none');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
