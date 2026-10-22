@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ระบบจัดตารางสอนอัตโนมัติ - วิทยาลัยเทคนิคกระบี่</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:'Sarabun',system-ui,sans-serif;background:#f8fafc;color:#1e293b;font-size:15px}
+.wrap{max-width:1180px;margin:0 auto;padding:16px}
+header{background:#fff;border-bottom:1px solid #e2e8f0;position:sticky;top:0;z-index:5}
+header .wrap{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 16px}
+.logo{width:40px;height:40px;border-radius:10px;background:#d97706;color:#fff;display:grid;place-items:center;font-size:20px}
+h1{font-size:1.1rem;margin:0}h2{font-size:1rem;margin:0 0 10px}
+.sub{font-size:.78rem;color:#64748b;margin:0}
+.roles{margin-left:auto;display:flex;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:10px;padding:3px}
+.roles button{border:0;background:none;padding:6px 10px;border-radius:8px;font:inherit;font-size:.8rem;cursor:pointer;color:#475569}
+.roles button.on{background:#fff;color:#b45309;font-weight:600;box-shadow:0 1px 2px #0002}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;margin-bottom:14px}
+button,select,input{font:inherit}
+.btn{border:1px solid #d97706;background:#fff;color:#b45309;padding:7px 12px;border-radius:9px;cursor:pointer;margin:0 6px 8px 0;font-size:.85rem}
+.btn.p{background:#d97706;color:#fff}.btn:disabled{opacity:.45;cursor:not-allowed}
+select,input[type=number]{border:1px solid #cbd5e1;border-radius:8px;padding:6px 8px;background:#fff;margin:0 6px 8px 0}
+.mut{color:#64748b;font-size:.85rem}
+.err{background:#fee2e2;color:#991b1b;border-radius:8px;padding:8px 12px;margin:8px 0;font-size:.85rem}.err li{margin-left:16px}
+.ok{color:#166534}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-bottom:14px}
+.kc{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:12px 14px}
+.kc small{display:block;color:#64748b;font-size:.78rem}.kc b{display:block;font-size:1.6rem;font-weight:600;line-height:1.3}
+.bar{height:5px;background:#e2e8f0;border-radius:3px;margin:5px 0;overflow:hidden}.bar i{display:block;height:100%;background:#d97706}
+.tag{font-size:.75rem;border-radius:10px;padding:1px 8px;background:#dcfce7;color:#166534}.tag.x{background:#fee2e2;color:#991b1b}
+.rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin-bottom:10px}
+.rule{display:flex;justify-content:space-between;gap:10px;border:1px solid #e2e8f0;border-radius:10px;padding:9px 12px;cursor:pointer;font-size:.85rem}
+.rule small{display:block;color:#64748b}
+.rule input{appearance:none;-webkit-appearance:none;width:38px;height:22px;flex:none;border-radius:11px;background:#cbd5e1;position:relative;margin:2px 0 0;cursor:pointer}
+.rule input::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .15s}
+.rule input:checked{background:#d97706}.rule input:checked::after{left:19px}
+.chk{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:8px 0}
+.chk div{border-radius:10px;padding:8px 10px;background:#dcfce7;color:#166534;font-size:.85rem}.chk div.x{background:#fee2e2;color:#991b1b}
+.chk b{display:block;font-size:1.4rem;font-weight:600}
+.tabs{display:inline-flex;gap:4px;margin:0 8px 8px 0}.tabs .btn{margin:0}.tabs .on{background:#d97706;color:#fff}
+.tw{overflow-x:auto;border:1px solid #e2e8f0;border-radius:10px}
+table{border-collapse:collapse;width:100%;font-size:.8rem}
+th,td{border:1px solid #e2e8f0;padding:4px;text-align:center;vertical-align:middle}
+th{background:#f1f5f9;font-weight:600}
+#gt{min-width:1100px;table-layout:fixed}#gt td{height:62px;font-size:.72rem;line-height:1.3}
+.fl{background:#fffbeb;color:#92400e}.th{background:#dbeafe;border-color:#93c5fd!important}.pr{background:#f3e8ff;border-color:#c4b5fd!important}.ac{background:#fef3c7;border-color:#fcd34d!important}
+.lg{display:inline-block;width:12px;height:12px;border-radius:3px;margin:0 4px 0 12px;vertical-align:middle;border:1px solid #94a3b8}
+.chips span{display:inline-block;background:#fef3c7;border-radius:14px;padding:2px 10px;margin:0 6px 6px 0;font-size:.82rem}
+details{margin-top:6px}
+@media print{@page{size:A4 landscape;margin:4mm}.no-print,header{display:none!important}body{background:#fff;font-size:8.5px}.card{border:0;padding:0}#gt{min-width:0}#gt td{height:auto;min-height:25px}th,td{border:1px solid #000!important}}
+</style>
+</head>
+<body>
+<header class="no-print"><div class="wrap">
+<div class="logo">🎓</div>
+<div><h1>วิทยาลัยเทคนิคกระบี่ · ระบบจัดตารางสอนอัตโนมัติ</h1><p class="sub">นำเข้าข้อมูล → จัดตาราง → ตรวจการชน → ส่งออก</p></div>
+<div class="roles" id="roles"><button data-r="admin" class="on">ผู้บริหาร / วิชาการ</button><button data-r="teacher">ครูผู้สอน</button><button data-r="student">นักเรียน</button></div>
+</div></header>
+<main class="wrap">
+
+<div class="kpis no-print">
+<div class="kc"><small>ข้อมูลที่นำเข้า</small><b id="k1">-</b><div class="bar"><i id="k1b" style="width:0"></i></div><small id="k1s">ยังไม่ได้นำเข้า</small></div>
+<div class="kc"><small>ข้อขัดแย้ง/คาบชน</small><b id="k2">-</b><span class="tag" id="k2t">รอจัดตาราง</span></div>
+<div class="kc"><small>อัตราใช้ห้องเฉลี่ย</small><b id="k3">-</b><div class="bar"><i id="k3b" style="width:0"></i></div><small id="k3s">ยังไม่มีตาราง</small></div>
+<div class="kc"><small>ภาระงานเฉลี่ยครู</small><b id="k4">-</b><small id="k4s">ยังไม่มีตาราง</small></div>
+</div>
+
+<section class="card no-print ctl">
+<h2>1. นำเข้าข้อมูลรายวิชา</h2>
+<button class="btn p" id="bSample">โหลดข้อมูลตัวอย่าง</button>
+<button class="btn" id="bTpl">ดาวน์โหลดไฟล์แม่แบบ Excel</button>
+<div><label class="mut">อัปโหลด Excel/CSV: <input type="file" id="file" accept=".xlsx,.xls,.csv" style="max-width:100%"></label></div>
+<p class="mut" style="margin:4px 0">คอลัมน์: รหัสวิชา, ชื่อวิชา, ช (ชั่วโมง/สัปดาห์), กลุ่มเรียน, ครูผู้สอน, ห้อง (ระบบเป็นผู้เลือกวันและคาบให้เอง)</p>
+<div id="prev"></div>
+</section>
+
+<section class="card no-print ctl">
+<h2>2. จัดตารางอัตโนมัติ</h2>
+<div class="rules">
+<label class="rule"><span><b>ล็อกบ่ายวันพุธ คาบ 7-8</b><small>กันเวลา 15:00-17:00 สำหรับกิจกรรม/โฮมรูม</small></span><input type="checkbox" id="cLock" checked></label>
+<label class="rule"><span><b>ครูสอนไม่เกิน 6 ชม./วัน</b><small>ปิดไว้จะใช้เพดาน 8 ชม./วัน</small></span><input type="checkbox" id="cMax"></label>
+<label class="rule"><span><b>เลี่ยงวิชาเดียวกันซ้ำวัน</b><small>กระจายวิชาให้อยู่คนละวัน</small></span><input type="checkbox" id="cSpread" checked></label>
+</div>
+<button class="btn p" id="bRun" disabled>⚡ จัดตารางอัตโนมัติ</button>
+<button class="btn" id="bRe" disabled>ลองจัดใหม่ (เปลี่ยน seed)</button>
+<button class="btn" id="bCmp" disabled>เปรียบเทียบกับการสุ่ม</button>
+<label class="mut">seed: <input id="seed" type="number" value="1" style="width:90px"></label>
+<div id="msg" class="mut"></div><div id="chk"></div><div id="cmp"></div>
+<details><summary>ระบบคิดอย่างไร</summary>
+<p class="mut">1) ตัดวิชาเป็นก้อนคาบต่อเนื่อง (เช่น 5 ชม. เป็น 3+2) 2) เรียงก้อนที่จัดยากก่อน คือครูที่มีชั่วโมงเยอะและก้อนใหญ่ 3) วางทีละก้อนในช่องแรกที่ไม่ชนครู ห้อง หรือกลุ่มเรียน 4) ถ้าวางไม่ได้ ถอยกลับไปเปลี่ยนก้อนก่อนหน้า (Backtracking) ถ้ายังไม่สำเร็จจะเริ่มใหม่ด้วยลำดับสุ่มอื่น และถ้ายังไม่ได้จะแบ่งก้อน 3 ชม. เป็น 2+1 5) ตัวตรวจอิสระตรวจตารางสุดท้ายว่าไม่ชน ไม่คร่อมพักเที่ยง และชั่วโมงครบ</p></details>
+</section>
+
+<section class="card">
+<h2 class="no-print">3. ตารางสอน</h2>
+<div class="no-print">
+<div class="tabs" id="tabs"><button class="btn on" data-v="group">ตามกลุ่มเรียน</button><button class="btn" data-v="teacher">ตามครูผู้สอน</button><button class="btn" data-v="room">ตามห้อง</button></div>
+<select id="it"></select>
+<span class="mut"><i class="lg" style="background:#dbeafe"></i>วิชาสามัญ/ทฤษฎี<i class="lg" style="background:#f3e8ff"></i>วิชาชีพ/ปฏิบัติ<i class="lg" style="background:#fef3c7"></i>กิจกรรม/โฮมรูม</span>
+</div>
+<div class="tw"><table id="gt"><thead><tr id="th"></tr></thead><tbody id="tb"></tbody></table></div>
+</section>
+
+<section class="card no-print">
+<h2>4. สรุปตัวเลขและส่งออก</h2>
+<div id="stat" class="chips mut">ยังไม่มีข้อมูล</div>
+<button class="btn" id="bXls" disabled>ส่งออก Excel</button>
+<button class="btn" id="bPrint" disabled>พิมพ์ / PDF</button>
+<div class="mut">ข้อมูลเก็บในเบราว์เซอร์เครื่องนี้ (localStorage) กรรมการเปิดจากเครื่องอื่นต้องนำเข้าไฟล์ใหม่</div>
+</section>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const DAYS=['จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์'];
+let MAXD=8,LOCK=true,SPREAD=true,FINE=false;
+const SAMPLE=[["31900-0007","การสร้างภาพเคลื่อนไหว",5,"ทส.ส.1/1","รัชนก","435"],["31905-2005","การออกแบบและสร้างองค์ประกอบกราฟิก",5,"ทส.ส.1/1","บุษญรัตน์","435"],["31905-2014","การออกแบบและสร้างภาพเคลื่อนไหว 3 มิติ",4,"ทส.ส.1/1","รัชนก","435"],["HR-1/1","ชั่วโมงพบครูที่ปรึกษา",1,"ทส.ส.1/1","บุษญรัตน์","435"],["30000-1302","วิทยาศาสตร์งานอาชีพไฟฟ้า อิเล็กทรอนิกส์และการสื่อสาร",4,"ทส.ส.1/1","อรนิดา","125"],["31900-0002","การเขียนโปรแกรมคอมพิวเตอร์",5,"ทส.ส.1/1","พิเชษฐ์","436"],["31900-1001","กฎหมายในงานอาชีพอุตสาหกรรมดิจิทัล",1,"ทส.ส.1/1","กนกพร","437"],["31905-2010","การผลิตเกมคอมพิวเตอร์",5,"ทส.ส.1/1","สิปปกร","437"],["30000-1201","ภาษาอังกฤษสำหรับงานอาชีพ",3,"ทส.ส.1/1","จารุวรรณ","135"],["30000-2002","กิจกรรมองค์การวิชาชีพ 1",2,"ทส.ส.1/1","สิปปกร","433"],["31900-0003","ระบบฐานข้อมูลและการประยุกต์",5,"ทส.ส.1/1","อารีรัตน์","433"],["31900-0007","การสร้างภาพเคลื่อนไหว",5,"ทส.ส.1/2","รัชนก","434"],["31905-2005","การออกแบบและสร้างองค์ประกอบกราฟิก",5,"ทส.ส.1/2","รัชนก","434"],["31905-2014","การออกแบบและสร้างภาพเคลื่อนไหว 3 มิติ",4,"ทส.ส.1/2","รัชนก","434"],["HR-1/2","ชั่วโมงพบครูที่ปรึกษา",1,"ทส.ส.1/2","รัชนก","434"],["30000-1302","วิทยาศาสตร์งานอาชีพไฟฟ้า อิเล็กทรอนิกส์และการสื่อสาร",4,"ทส.ส.1/2","อินทอร","115"],["31900-0002","การเขียนโปรแกรมคอมพิวเตอร์",5,"ทส.ส.1/2","พิเชษฐ์","436"],["31900-1001","กฎหมายในงานอาชีพอุตสาหกรรมดิจิทัล",1,"ทส.ส.1/2","กนกพร","434"],["31905-2010","การผลิตเกมคอมพิวเตอร์",5,"ทส.ส.1/2","สิปปกร","434"],["30000-1201","ภาษาอังกฤษสำหรับงานอาชีพ",3,"ทส.ส.1/2","พุธิตา","143"],["30000-2002","กิจกรรมองค์การวิชาชีพ 1",2,"ทส.ส.1/2","สิปปกร","433"],["31900-0003","ระบบฐานข้อมูลและการประยุกต์",5,"ทส.ส.1/2","อารีรัตน์","433"]].map(a=>({code:a[0],name:a[1],hours:a[2],group:a[3],teacher:a[4],room:a[5]}));
+const HEAD=['รหัสวิชา','ชื่อวิชา','ช','กลุ่มเรียน','ครูผู้สอน','ห้อง'];
+let rows=[],pending=[],blocks=[],placed=[],last=null,view='group';
+const tp=p=>p<5?p:p-1; // ตัวเลขคาบภายใน (ข้ามคาบ 5 = พักเที่ยง) -> เลขคาบในตาราง
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function say(t){$('msg').textContent=t}
+function save(){try{localStorage.setItem('tt_v2',JSON.stringify({rows,blocks,placed}))}catch(e){}}
+
+function validate(rs){
+ const err=[],seen={},gh={};
+ if(!rs.length)err.push('ไม่พบข้อมูลรายวิชาในไฟล์ ตรวจว่าแถวแรกเป็นหัวคอลัมน์');
+ rs.forEach((r,i)=>{const n=i+2;
+  if(!r.code||!r.name)err.push('แถว '+n+': ขาดรหัสวิชาหรือชื่อวิชา');
+  if(!r.group)err.push('แถว '+n+': ยังไม่ระบุกลุ่มเรียนของ '+r.code);
+  if(!r.teacher)err.push('แถว '+n+': ยังไม่ระบุครูผู้สอนของ '+r.code);
+  if(!r.room)err.push('แถว '+n+': ยังไม่ระบุห้องของ '+r.code);
+  if(!(r.hours>=1&&r.hours<=10))err.push('แถว '+n+': ชั่วโมง (ช) ของ '+r.code+' ต้องเป็นตัวเลข 1-10');
+  const k=r.group+'|'+r.code;
+  if(seen[k])err.push('แถว '+n+': รหัสวิชา '+r.code+' ซ้ำในกลุ่ม '+r.group+' ให้ลบหรือเปลี่ยนรหัสแถวใดแถวหนึ่ง');
+  seen[k]=1;gh[r.group]=(gh[r.group]||0)+(+r.hours||0)});
+ Object.keys(gh).forEach(g=>{if(gh[g]>45)err.push('ห้องไม่พอ: กลุ่ม '+g+' มี '+gh[g]+' ชม. เกินช่องเรียนที่มี 45 ชม./สัปดาห์ ให้ลดชั่วโมงหรือแบ่งกลุ่ม')});
+ return err
+}
+function showPrev(){
+ const err=validate(pending),u=k=>new Set(pending.map(r=>r[k])).size;
+ let h='<p>พบ '+pending.length+' วิชา, '+u('group')+' กลุ่มเรียน, '+u('teacher')+' ครู, '+u('room')+' ห้อง</p>';
+ if(err.length)h+='<div class="err"><b>พบปัญหา '+err.length+' จุด แก้ไฟล์แล้วอัปโหลดใหม่</b><ul>'+err.slice(0,8).map(e=>'<li>'+esc(e)+'</li>').join('')+'</ul></div>';
+ h+='<div class="tw"><table><tr>'+HEAD.map(x=>'<th>'+x+'</th>').join('')+'</tr>'+pending.slice(0,6).map(r=>'<tr><td>'+esc(r.code)+'</td><td style="text-align:left">'+esc(r.name)+'</td><td>'+esc(r.hours)+'</td><td>'+esc(r.group)+'</td><td>'+esc(r.teacher)+'</td><td>'+esc(r.room)+'</td></tr>').join('')+'</table></div><p class="mut">แสดงตัวอย่าง 6 แถวแรก</p>';
+ h+='<button class="btn p" id="bOk"'+(err.length?' disabled':'')+'>ยืนยันนำเข้า</button>';
+ $('prev').innerHTML=h;$('bOk').onclick=confirmImport
+}
+function mkBlocks(){
+ blocks=[];
+ rows.forEach((r,i)=>{let h=r.hours,parts=h<=3?[h]:h===4?[2,2]:h===5?[3,2]:null;
+  if(!parts){parts=[];while(h>0){const x=Math.min(3,h);parts.push(x);h-=x}}
+  parts.forEach(len=>blocks.push({row:i,len}))})
+}
+function ready(){['bRun','bRe','bCmp'].forEach(i=>$(i).disabled=!rows.length);$('bXls').disabled=$('bPrint').disabled=!placed.length}
+function confirmImport(){
+ rows=pending.map(r=>({...r,hours:+r.hours}));mkBlocks();placed=[];last=null;
+ $('prev').innerHTML='<p class="ok">นำเข้าแล้ว '+rows.length+' วิชา ('+blocks.length+' ก้อนคาบ) ไปขั้นตอนที่ 2 ได้เลย</p>';
+ $('chk').innerHTML='';$('cmp').innerHTML='';say('พร้อมจัดตาราง');
+ save();ready();fillItems();grid();stat()
+}
+function colIndex(head,al){for(let i=0;i<head.length;i++)if(al.includes(String(head[i]).trim()))return i;return -1}
+async function readFile(f){
+ try{
+  const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
+  const ws=wb.Sheets['รายวิชา']||wb.Sheets[wb.SheetNames[0]];
+  const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:''}),head=data[0]||[];
+  const al={code:['รหัสวิชา','รหัส'],name:['ชื่อวิชา','ชื่อรายวิชา'],hours:['ช','ชั่วโมง','ชั่วโมงรวม','ชั่วโมงต่อสัปดาห์'],group:['กลุ่มเรียน','กลุ่ม'],teacher:['ครูผู้สอน','ครู'],room:['ห้อง','ห้องเรียน']};
+  const ix={},miss=[];
+  Object.keys(al).forEach(k=>{ix[k]=colIndex(head,al[k]);if(ix[k]<0)miss.push(al[k][0])});
+  if(miss.length){pending=[];$('prev').innerHTML='<div class="err">ไม่พบคอลัมน์: '+miss.join(', ')+'<br>หัวคอลัมน์ที่พบในไฟล์: '+esc(head.join(', '))+'<br>ให้ดาวน์โหลดไฟล์แม่แบบแล้วกรอกตามหัวคอลัมน์</div>';return}
+  pending=data.slice(1).filter(r=>r.some(c=>String(c).trim()!=='')).map(r=>({code:String(r[ix.code]).trim(),name:String(r[ix.name]).trim(),hours:Number(r[ix.hours]),group:String(r[ix.group]).trim(),teacher:String(r[ix.teacher]).trim(),room:String(r[ix.room]).trim()}));
+  showPrev()
+ }catch(e){$('prev').innerHTML='<div class="err">อ่านไฟล์ไม่ได้ ตรวจว่าเป็นไฟล์ .xlsx หรือ .csv ที่เปิดได้ปกติ</div>'}
+}
+
+function rng(s){return()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const ST={};
+function starts(L){if(ST[L])return ST[L];const a=[];for(let s=1;s+L-1<=10;s++){let ok=true;for(let p=s;p<s+L;p++)if(p===5)ok=false;if(ok)a.push(s)}return ST[L]=a}
+function attempt(seed){
+ const R=rng(seed),occ={},tday={},cd={},out=[];let steps=0,back=0;
+ const tl={};rows.forEach(r=>tl[r.teacher]=(tl[r.teacher]||0)+r.hours);
+ const src=FINE?blocks.flatMap(b=>b.len===3?[{row:b.row,len:2},{row:b.row,len:1}]:[b]):blocks;const bl=src.slice().sort((a,b)=>(tl[rows[b.row].teacher]*3+b.len)-(tl[rows[a.row].teacher]*3+a.len)||R()-.5);
+ const keys=(r,d,p)=>['t'+r.teacher+d+'-'+p,'r'+r.room+d+'-'+p,'g'+r.group+d+'-'+p];
+ function free(r,d,s,L){if(LOCK&&d===2&&s<=9&&s+L-1>=8)return false;for(let p=s;p<s+L;p++)if(keys(r,d,p).some(k=>occ[k]))return false;return (tday[r.teacher+d]||0)+L<=MAXD}
+ function mark(r,ri,d,s,L,v){for(let p=s;p<s+L;p++)keys(r,d,p).forEach(k=>occ[k]=v);tday[r.teacher+d]=(tday[r.teacher+d]||0)+(v?L:-L);cd[ri+'-'+d]=(cd[ri+'-'+d]||0)+(v?1:-1)}
+ function rec(i){
+  if(i===bl.length)return true;
+  if(++steps>800)return false;
+  const b=bl[i],r=rows[b.row],c=[];
+  for(let d=0;d<5;d++)starts(b.len).forEach(s=>c.push([d,s]));
+  c.sort((x,y)=>(SPREAD?((cd[b.row+'-'+x[0]]||0)-(cd[b.row+'-'+y[0]]||0)):0)||R()-.5);
+  for(const [d,s] of c){
+   if(!free(r,d,s,b.len))continue;
+   mark(r,b.row,d,s,b.len,1);out.push({row:b.row,day:d,start:s,len:b.len});
+   if(rec(i+1))return true;
+   mark(r,b.row,d,s,b.len,0);out.pop();back++;
+   if(steps>800)return false
+  }
+  return false
+ }
+ const ok=rec(0);
+ return {ok,placed:out.slice(),back,steps}
+}
+function check(pl){
+ const m={t:{},r:{},g:{}},th={},sum={};let lunch=0,over=0,hmis=0;
+ pl.forEach(x=>{const w=rows[x.row];sum[x.row]=(sum[x.row]||0)+x.len;
+  th[w.teacher+x.day]=(th[w.teacher+x.day]||0)+x.len;
+  for(let p=x.start;p<x.start+x.len;p++){
+   if(p===5||(LOCK&&x.day===2&&(p===8||p===9)))lunch++;
+   [['t',w.teacher],['r',w.room],['g',w.group]].forEach(([k,v])=>{const key=v+x.day+'-'+p;m[k][key]=(m[k][key]||0)+1})}});
+ const cnt=o=>Object.values(o).reduce((a,n)=>a+(n>1?n-1:0),0);
+ const t=cnt(m.t),r=cnt(m.r),g=cnt(m.g);
+ Object.values(th).forEach(h=>{if(h>MAXD)over++});
+ rows.forEach((w,i)=>{if((sum[i]||0)!==w.hours)hmis++});
+ return {t,r,g,rule:lunch+over+hmis,total:t+r+g+lunch+over+hmis}
+}
+function showCheck(c){
+ const cell=(n,l)=>'<div class="'+(n?'x':'')+'"><b>'+n+'</b>'+l+'</div>';
+ $('chk').innerHTML='<div class="chk">'+cell(c.t,'ครูชนคาบ')+cell(c.r,'ห้องชน')+cell(c.g,'กลุ่มเรียนชน')+cell(c.rule,'ผิดเงื่อนไขอื่น')+'</div>'
+}
+async function run(seed){
+ MAXD=$('cMax').checked?6:8;LOCK=$('cLock').checked;SPREAD=$('cSpread').checked;
+ const cap=Math.min(5*MAXD,45),tl={},rl={};
+ rows.forEach(r=>{tl[r.teacher]=(tl[r.teacher]||0)+r.hours;rl[r.room]=(rl[r.room]||0)+r.hours});
+ const badT=Object.keys(tl).filter(k=>tl[k]>cap),badR=Object.keys(rl).filter(k=>rl[k]>45);
+ if(badT.length||badR.length){placed=[];last=null;$('chk').innerHTML='';
+  say('จัดไม่ได้: '+(badT.length?'ครู '+badT.join(', ')+' สอนเกิน '+cap+' ชม./สัปดาห์ ':'')+(badR.length?'ห้อง '+badR.join(', ')+' ถูกใช้เกิน 45 ชม./สัปดาห์ ':'')+'ให้ลดชั่วโมง เพิ่มครู หรือเพิ่มห้อง');
+  ready();grid();stat();return}
+ ['bRun','bRe','bCmp'].forEach(i=>$(i).disabled=true);
+ say('กำลังจัดตาราง... (อาจใช้เวลาไม่กี่วินาที)');
+ await new Promise(r=>setTimeout(r,40));
+ const t0=performance.now();let res=null,tries=0;
+ for(let k=0;k<300;k++){tries++;FINE=k>=5;res=attempt(seed+k*7919);if(res.ok||performance.now()-t0>12000)break}
+ const ms=Math.round(performance.now()-t0);
+ if(!res.ok){placed=[];last=null;say('จัดไม่ได้ภายใน '+ms+' มิลลิวินาที ลองเปลี่ยน seed ปิดเงื่อนไขบางข้อ หรือลดชั่วโมงสอนของครูที่งานหนักสุด');$('chk').innerHTML='';ready();grid();stat();return}
+ placed=res.placed;const c=check(placed);last={ms,c};
+ say('จัดเสร็จใน '+ms+' มิลลิวินาที, เริ่มใหม่ '+(tries-1)+' ครั้ง, ถอยกลับ '+res.back+' ครั้ง');
+ showCheck(c);save();ready();fillItems();grid();stat()
+}
+function randomCompare(){
+ if(!placed.length||!last){say('กดจัดตารางก่อน แล้วค่อยเปรียบเทียบ');return}
+ const R=rng(+$('seed').value+99),t0=performance.now();
+ const rp=blocks.map(b=>{const s=starts(b.len);return {row:b.row,day:Math.floor(R()*5),start:s[Math.floor(R()*s.length)],len:b.len}});
+ const rc=check(rp),ms=Math.max(1,Math.round(performance.now()-t0));
+ $('cmp').innerHTML='<div class="tw"><table><tr><th>วิธี</th><th>จุดที่ชนทั้งหมด</th><th>เวลา (มิลลิวินาที)</th></tr><tr><td>สุ่มวาง</td><td>'+rc.total+'</td><td>'+ms+'</td></tr><tr><td>ระบบของเรา</td><td>'+last.c.total+'</td><td>'+last.ms+'</td></tr></table></div>'
+}
+function keyOf(r){return view==='group'?r.group:view==='teacher'?r.teacher:r.room}
+function fillItems(){
+ const vals=[...new Set(rows.map(keyOf))].sort(),old=$('it').value;
+ $('it').innerHTML=vals.map(v=>'<option>'+esc(v)+'</option>').join('');
+ if(vals.includes(old))$('it').value=old
+}
+function buildHead(){
+ let h='<th style="width:80px">วัน / เวลา</th><th class="fl" style="width:70px">07:40<br>08:00</th>';
+ for(let q=1;q<=12;q++){if(q===5)h+='<th class="fl" style="width:70px">พักกลางวัน<br>12:00-13:00</th>';h+='<th>คาบ '+q+'<br><small style="font-weight:400">'+(7+q)+':00-'+(8+q)+':00</small></th>'}
+ $('th').innerHTML=h
+}
+function grid(){
+ if(!placed.length){$('tb').innerHTML='<tr><td colspan="15" style="height:80px;color:#94a3b8">'+(rows.length?'กด "จัดตารางอัตโนมัติ" เพื่อสร้างตาราง':'นำเข้าข้อมูลและจัดตารางก่อน')+'</td></tr>';return}
+ const it=$('it').value,cell={};
+ placed.forEach(x=>{const r=rows[x.row];if(keyOf(r)!==it)return;for(let p=x.start;p<x.start+x.len;p++)cell[x.day+'-'+tp(p)]={x,first:p===x.start}});
+ let h='';
+ for(let d=0;d<5;d++){
+  h+='<tr><th>วัน'+DAYS[d]+'</th><td class="fl">กิจกรรมหน้าเสาธง</td>';
+  for(let q=1;q<=12;q++){
+   if(q===5)h+='<td class="fl">พักเที่ยง</td>';
+   const c=cell[d+'-'+q];
+   if(!c){h+='<td></td>';continue}
+   if(!c.first)continue;
+   const r=rows[c.x.row],cls=r.code.startsWith('HR')||r.name.includes('กิจกรรม')?'ac':r.code.startsWith('300')?'th':'pr';
+   const l2=view==='group'?r.room+' · '+r.teacher:view==='teacher'?r.group+' · '+r.room:r.group+' · '+r.teacher;
+   h+='<td class="'+cls+'" colspan="'+c.x.len+'"><b>'+esc(r.code)+'</b><br>'+esc(r.name.slice(0,22))+'<br><span class="mut">'+esc(l2)+'</span></td>'
+  }
+  h+='</tr>'
+ }
+ $('tb').innerHTML=h
+}
+function stat(){
+ const has=rows.length,pl=placed.length,u=k=>new Set(rows.map(r=>r[k])).size;
+ $('k1').textContent=has?rows.length+' วิชา':'-';$('k1b').style.width=has?'100%':'0';
+ $('k1s').textContent=has?'ครู '+u('teacher')+' · กลุ่ม '+u('group')+' · ห้อง '+u('room'):'ยังไม่ได้นำเข้า';
+ if(!pl||!last){['k2','k3','k4'].forEach(i=>$(i).textContent='-');$('k2t').textContent='รอจัดตาราง';$('k2t').className='tag';$('k3b').style.width='0';$('k3s').textContent=$('k4s').textContent='ยังไม่มีตาราง';$('stat').textContent=has?'จัดตารางแล้วจะแสดงตัวเลขสรุปที่นี่':'ยังไม่มีข้อมูล';return}
+ const t=last.c.total;$('k2').textContent=t+' รายการ';$('k2t').textContent=t?'ตรวจพบความขัดแย้ง':'ไม่มีข้อผิดพลาด';$('k2t').className='tag'+(t?' x':'');
+ const ru={},tl={};placed.forEach(x=>{const r=rows[x.row];ru[r.room]=(ru[r.room]||0)+x.len;tl[r.teacher]=(tl[r.teacher]||0)+x.len});
+ const rv=Object.values(ru),tv=Object.values(tl),avg=a=>a.reduce((q,n)=>q+n,0)/a.length;
+ const rp=Math.round(avg(rv)/45*100);$('k3').textContent=rp+'%';$('k3b').style.width=rp+'%';$('k3s').textContent='ใช้ '+rv.length+' ห้อง · สูงสุด '+Math.round(Math.max(...rv)/45*100)+'%';
+ $('k4').textContent=avg(tv).toFixed(1)+' ชม./สัปดาห์';$('k4s').textContent='สูงสุด '+Math.max(...tv)+' ชม. · ต่ำสุด '+Math.min(...tv)+' ชม.';
+ $('stat').innerHTML='<div><b>อัตราใช้ห้อง</b> (จาก 45 คาบ/สัปดาห์)</div><div>'+Object.keys(ru).sort().map(k=>'<span>ห้อง '+esc(k)+': '+Math.round(ru[k]/45*100)+'%</span>').join('')+'</div><div><b>ภาระงานครู</b> (ชั่วโมง/สัปดาห์)</div><div>'+Object.keys(tl).sort().map(k=>'<span>'+esc(k)+': '+tl[k]+'</span>').join('')+'</div>'
+}
+function exportXls(){
+ const hd=['กลุ่มเรียน','วัน','คาบเริ่ม','คาบสิ้นสุด','เวลา','รหัสวิชา','ชื่อวิชา','ห้อง','ครูผู้สอน'];
+ const body=placed.slice().sort((a,b)=>rows[a.row].group.localeCompare(rows[b.row].group)||a.day-b.day||a.start-b.start).map(x=>{const r=rows[x.row],a=tp(x.start),e=tp(x.start+x.len-1);return [r.group,'วัน'+DAYS[x.day],a,e,(7+a)+':00-'+(8+e)+':00',r.code,r.name,r.room,r.teacher]});
+ const wb=XLSX.utils.book_new();
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([hd].concat(body)),'ตารางสอน');
+ if(last){const c=last.c;XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['รายการตรวจ','จำนวน'],['ครูชนคาบ',c.t],['ห้องชน',c.r],['กลุ่มเรียนชน',c.g],['ผิดเงื่อนไขอื่น',c.rule]]),'สรุปตรวจชน')}
+ XLSX.writeFile(wb,'ตารางสอน.xlsx')
+}
+function template(){
+ const wb=XLSX.utils.book_new();
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([HEAD].concat(SAMPLE.slice(0,5).map(r=>[r.code,r.name,r.hours,r.group,r.teacher,r.room]))),'รายวิชา');
+ XLSX.writeFile(wb,'แม่แบบรายวิชา.xlsx')
+}
+function setView(v){
+ view=v;document.querySelectorAll('#tabs .btn').forEach(b=>b.classList.toggle('on',b.dataset.v===v));fillItems();grid()
+}
+function role(r){
+ document.querySelectorAll('#roles button').forEach(b=>b.classList.toggle('on',b.dataset.r===r));
+ document.querySelectorAll('.ctl').forEach(e=>e.style.display=r==='student'?'none':'');
+ if(r==='student')setView('group');if(r==='teacher')setView('teacher')
+}
+$('bSample').onclick=()=>{pending=SAMPLE.map(r=>({...r}));showPrev()};
+$('bTpl').onclick=template;
+$('file').onchange=e=>{if(e.target.files[0])readFile(e.target.files[0])};
+$('bRun').onclick=()=>run(+$('seed').value||1);
+$('bRe').onclick=()=>{$('seed').value=Math.floor(Math.random()*9000)+2;run(+$('seed').value)};
+$('bCmp').onclick=randomCompare;
+$('bXls').onclick=exportXls;$('bPrint').onclick=()=>window.print();
+$('it').onchange=grid;
+document.querySelectorAll('#tabs .btn').forEach(b=>b.onclick=()=>setView(b.dataset.v));
+document.querySelectorAll('#roles button').forEach(b=>b.onclick=()=>role(b.dataset.r));
+buildHead();
+try{const s=JSON.parse(localStorage.getItem('tt_v2')||'null');if(s&&s.rows&&s.rows.length){rows=s.rows;blocks=s.blocks;placed=s.placed||[];if(placed.length)last={ms:0,c:check(placed)};ready();fillItems()}}catch(e){}
+grid();stat();
+</script>
+</body>
+</html>
